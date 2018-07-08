@@ -108,6 +108,7 @@ namespace Miniblog.Core.Controllers
             existing.IsPublished = post.IsPublished;
             existing.Content = post.Content.Trim();
             existing.Excerpt = post.Excerpt.Trim();
+            existing.PubDate = post.PubDate;
 
             await _blog.SavePost(existing);
 

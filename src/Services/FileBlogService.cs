@@ -32,7 +32,7 @@ namespace Miniblog.Core.Services
             bool isAdmin = IsAdmin();
 
             var posts = _cache
-                .Where(p => p.PubDate <= DateTime.UtcNow && (p.IsPublished || isAdmin))
+                .Where(p => (p.PubDate <= DateTime.UtcNow && p.IsPublished) || isAdmin)
                 .Skip(skip)
                 .Take(count);
 
@@ -70,7 +70,7 @@ namespace Miniblog.Core.Services
             var post = _cache.FirstOrDefault(p => p.ID.Equals(id, StringComparison.OrdinalIgnoreCase));
             bool isAdmin = IsAdmin();
 
-            if (post != null && post.PubDate <= DateTime.UtcNow && (post.IsPublished || isAdmin))
+            if (post != null && (isAdmin || post.PubDate <= DateTime.UtcNow && post.IsPublished))
             {
                 return Task.FromResult(post);
             }
@@ -137,8 +137,9 @@ namespace Miniblog.Core.Services
             if (!_cache.Contains(post))
             {
                 _cache.Add(post);
-                SortCache();
             }
+
+            SortCache();
         }
 
         public Task DeletePost(Post post)
@@ -147,7 +148,7 @@ namespace Miniblog.Core.Services
 
             if (File.Exists(filePath))
             {
-                File.Delete(filePath);
+                File.Move(filePath, filePath.Replace(".xml", ".deleted"));
             }
 
             if (_cache.Contains(post))
