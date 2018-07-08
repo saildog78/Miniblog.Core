@@ -195,26 +195,33 @@ namespace Miniblog.Core.Services
             if (!Directory.Exists(_folder))
                 Directory.CreateDirectory(_folder);
 
-            // Can this be done in parallel to speed it up?
-            foreach (string file in Directory.EnumerateFiles(_folder, "*.xml", SearchOption.TopDirectoryOnly))
+            var fileNames = from fileName in Directory.EnumerateFiles(_folder, "*.xml", SearchOption.TopDirectoryOnly)
+                            select fileName;
+
+            // Done in parallel to speed it up?
+            var items = from file in fileNames.AsParallel()
+                        let doc = XElement.Load(file)
+                        select new
+                        {
+                            doc,
+                            post = new Post
+                            {
+                                ID = Path.GetFileNameWithoutExtension(file),
+                                Title = ReadValue(doc, "title"),
+                                Excerpt = ReadValue(doc, "excerpt"),
+                                Content = ReadValue(doc, "content"),
+                                Slug = ReadValue(doc, "slug").ToLowerInvariant(),
+                                PubDate = DateTime.Parse(ReadValue(doc, "pubDate")),
+                                LastModified = DateTime.Parse(ReadValue(doc, "lastModified", DateTime.UtcNow.ToString(CultureInfo.InvariantCulture))),
+                                IsPublished = bool.Parse(ReadValue(doc, "ispublished", "false")),
+                            }
+                        };
+
+            foreach (var item in items)
             {
-                XElement doc = XElement.Load(file);
-
-                Post post = new Post
-                {
-                    ID = Path.GetFileNameWithoutExtension(file),
-                    Title = ReadValue(doc, "title"),
-                    Excerpt = ReadValue(doc, "excerpt"),
-                    Content = ReadValue(doc, "content"),
-                    Slug = ReadValue(doc, "slug").ToLowerInvariant(),
-                    PubDate = DateTime.Parse(ReadValue(doc, "pubDate")),
-                    LastModified = DateTime.Parse(ReadValue(doc, "lastModified", DateTime.Now.ToString(CultureInfo.InvariantCulture))),
-                    IsPublished = bool.Parse(ReadValue(doc, "ispublished", "true")),
-                };
-
-                LoadCategories(post, doc);
-                LoadComments(post, doc);
-                _cache.Add(post);
+                LoadCategories(item.post, item.doc);
+                LoadComments(item.post, item.doc);
+                _cache.Add(item.post);
             }
         }
 
